@@ -3,8 +3,8 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.models import MessageEvent, TextMessage
 
 # LINE Botに関するインスタンス作成
-line_bot_api = LineBotApi(os.environ["LINEOA_CHANNEL_ACCESS_TOKEN"])
-handler = WebhookHandler(os.environ["LINEOA_CHANNEL_SECRET"])
+line_bot_api = LineBotApi(os.getenv("LINEOA_CHANNEL_ACCESS_TOKEN",""))
+handler = WebhookHandler(os.getenv("LINEOA_CHANNEL_SECRET",""))
 
 @handler.add(MessageEvent)
 def handle_message(event):
