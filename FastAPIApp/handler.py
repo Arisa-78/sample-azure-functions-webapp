@@ -1,12 +1,98 @@
 import os
+import re
+import httpx
+import xmltodict
 from linebot import LineBotApi, WebhookHandler
-from linebot.models import MessageEvent, TextMessage
+from linebot.models import MessageEvent, TextSendMessage, ImageSendMessage
 
 # LINE Botに関するインスタンス作成
 line_bot_api = LineBotApi(os.getenv("LINEOA_CHANNEL_ACCESS_TOKEN",""))
 handler = WebhookHandler(os.getenv("LINEOA_CHANNEL_SECRET",""))
 
+# 天気予報をリクエストしているメッセージの解析
+def parseWeatherCommand(input: str):
+    result = re.findall(r'^(.*)の天気', input)
+    if len(result) > 0:
+        return True, result[0]
+    else:
+        return False, ""
+
+# 猫画像をリクエストしているメッセージの解析
+def parseCatCommand(input: str):
+    result = re.findall(r'^猫(\d{3})', input)
+    if len(result) > 0:
+        return True, result[0]
+    else:
+        return False, ""
+
+# 都市名から都市IDを検索
+def searchCityID(targetCity: str) -> (str, str):
+    # エリア情報の取得
+    areaResp = httpx.get("https://weather.tsukumijima.net/primary_area.xml")
+    if areaResp.status_code != 200:
+        raise HTTPException(status_code=500, detail="failed to get an area xml")
+    try:
+        # XMLを解析して、dictデータに変換
+        area = xmltodict.parse(areaResp.text)
+        # エリア情報から該当する都市IDを取得
+        cityCode = ""
+        for pref in area['rss']['channel']['ldWeather:source']['pref']:
+            cityList = pref['city']
+            if type(cityList) == list:
+                for city in cityList:
+                    if city['@title'] == targetCity:
+                        return city['@id'], None
+            else:
+                if cityList['@title'] == targetCity:
+                    return cityList['@id'], None
+    except Exception as e:
+        return "", "exception:{0}".format(str(e))
+    # 見つからなかったら空文字を返す
+    return "", "Not found"
+
+# 天気予報の応答メッセージを作成
+def createReplyForecastMessage(targetCity: str) -> TextSendMessage:
+    # 返信メッセージの作成
+    replyText = ""
+    ## 都市名から都市IDに変換
+    ## 都市IDを使って天気予報情報を取得
+    ##   - description > bodyText　から天気概況を取得して返信メッセージとする
+    res_data = TextSendMessage(text=replyText)
+    return res_data
+
+# 猫画像が取得できるか確認
+def validateStatusCodeForCat(status_code: str) -> bool:
+    valid_status_codes = [
+        100, 101, 102, 103,
+        200, 201, 202, 203, 204, 206, 207,
+        300, 301, 302, 303, 304, 305, 307, 308,
+        400, 401, 402, 403, 404, 405, 406, 407, 408, 409, 410, 411, 412, 413, 414, 415, 416, 417, 418,
+        420, 421, 422, 423, 424, 425, 426, 428, 429, 431, 444, 450, 451, 497, 498, 499,
+        500, 501, 502, 503, 504, 506, 507, 508, 509, 510, 511, 521, 522, 523, 525, 530, 599,
+    ]
+    return int(status_code) in valid_status_codes
+
+# 猫画像の応答メッセージを作成
+def createReplyCatImageMessage(status_code: str) -> MessageEvent:
+    # 猫画像が取得できるか確認(status_codeの確認)
+    # 取得できるならURLの文字列を作成し、ImageSendMessageを作って返す
+    # 取得できない場合はエラーの旨のTextSendMessageを作って返す
+    pass
+
 @handler.add(MessageEvent)
 def handle_message(event):
-    res_data = TextMessage(text="メッセージを受け取りました")
-    line_bot_api.reply_message(event.reply_token, res_data)
+    # Message typeが"text"のとき
+    if event.message.type == "text":
+        res_data = None
+        # 天気予報
+        if (result := parseWeatherCommand(event.message.text))[0]:
+            # 天気予報の回答を生成
+            res_data = createReplyForecastMessage(result[1])
+        # 猫画像
+        if (result := parseCatCommand(event.message.text))[0]:
+            # 猫画像の回答を生成
+            res_data = createReplyCatImageMessage(result[1])
+        
+        if res_data != None:
+            # Replyメッセージの送信
+            line_bot_api.reply_message(event.reply_token, res_data)

@@ -15,4 +15,3 @@ async def webhook(request: Request, x_line_signature=Header(None)):
         raise HTTPException(status_code=400, detail="InvalidSignatureError")
     
     return "OK"
-
