@@ -54,9 +54,20 @@ def searchCityID(targetCity: str) -> (str, str):
 def createReplyForecastMessage(targetCity: str) -> TextSendMessage:
     # 返信メッセージの作成
     replyText = ""
-    ## 都市名から都市IDに変換
-    ## 都市IDを使って天気予報情報を取得
-    ##   - description > bodyText　から天気概況を取得して返信メッセージとする
+    cityCode, errorText = searchCityID(targetCity)
+    if cityCode != "":
+        # 取得した都市IDを使って、天気予報を取得
+        resp = httpx.get("https://weather.tsukumijima.net/api/forecast/city/{0}".format(cityCode))
+        if resp.status_code == 200:
+            result = resp.json()
+            try:
+                replyText = result["description"]["bodyText"]   # TextMessageは改行はそのまま表示に反映されるので変換せずに渡す
+            except KeyError:    # description > bodyTextが見つからなかった場合
+                replyText = "天気予報を取得に失敗しました(データ構造エラー)"
+        else:   # description > bodyTextが見つからなかった場合
+            replyText = "天気予報を取得に失敗しました(通信エラー)"
+    else:   # エリア情報から都市名が見つからなかった場合
+        replyText = "指定した都市名({0})が見つかりませんでした - error:{1}".format(targetCity, errorText)
     res_data = TextSendMessage(text=replyText)
     return res_data
 
@@ -74,10 +85,15 @@ def validateStatusCodeForCat(status_code: str) -> bool:
 
 # 猫画像の応答メッセージを作成
 def createReplyCatImageMessage(status_code: str) -> MessageEvent:
-    # 猫画像が取得できるか確認(status_codeの確認)
-    # 取得できるならURLの文字列を作成し、ImageSendMessageを作って返す
-    # 取得できない場合はエラーの旨のTextSendMessageを作って返す
-    pass
+    # 猫画像が取得できるか確認
+    if validateStatusCodeForCat(status_code):
+        # URLを作成
+        catImageURL = "https://http.cat/{0}.jpg".format(status_code)
+        # イメージメッセージを返す
+        return ImageSendMessage(original_content_url=catImageURL, preview_image_url=catImageURL)
+    else:
+        # 猫画像が見つからないので、エラーのメッセージを返す
+        return TextSendMessage(text="猫画像が見つかりませんでした-code:{0}".format(status_code))
 
 @handler.add(MessageEvent)
 def handle_message(event):
