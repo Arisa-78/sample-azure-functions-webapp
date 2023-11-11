@@ -1,5 +1,7 @@
 from fastapi import FastAPI, Request, Header
-from linebot.exceptions import InvalidSignatureError
+from linebot.v3.exceptions import (
+    InvalidSignatureError
+)
 from starlette.exceptions import HTTPException
 from FastAPIApp.handler import handler
 

@@ -2,11 +2,25 @@ import os
 import re
 import httpx
 import xmltodict
-from linebot import LineBotApi, WebhookHandler
-from linebot.models import MessageEvent, TextSendMessage, ImageSendMessage
+from linebot.v3 import (
+    WebhookHandler
+)
+from linebot.v3.messaging import (
+    Configuration,
+    ApiClient,
+    MessagingApi,
+    ReplyMessageRequest,
+    Message,
+    TextMessage,
+    ImageMessage,
+)
+from linebot.v3.webhooks import (
+    MessageEvent,
+    TextMessageContent,
+)
 
 # LINE Botに関するインスタンス作成
-line_bot_api = LineBotApi(os.getenv("LINEOA_CHANNEL_ACCESS_TOKEN",""))
+configuration = Configuration(access_token=os.getenv("LINEOA_CHANNEL_ACCESS_TOKEN",""))
 handler = WebhookHandler(os.getenv("LINEOA_CHANNEL_SECRET",""))
 
 # 天気予報をリクエストしているメッセージの解析
@@ -51,13 +65,13 @@ def searchCityID(targetCity: str) -> (str, str):
     return "", "Not found"
 
 # 天気予報の応答メッセージを作成
-def createReplyForecastMessage(targetCity: str) -> TextSendMessage:
+def createReplyForecastMessage(targetCity: str) -> Message:
     # 返信メッセージの作成
     replyText = ""
     ## 都市名から都市IDに変換
     ## 都市IDを使って天気予報情報を取得
     ##   - description > bodyText　から天気概況を取得して返信メッセージとする
-    res_data = TextSendMessage(text=replyText)
+    res_data = TextMessage(text=replyText)
     return res_data
 
 # 猫画像が取得できるか確認
@@ -73,16 +87,16 @@ def validateStatusCodeForCat(status_code: str) -> bool:
     return int(status_code) in valid_status_codes
 
 # 猫画像の応答メッセージを作成
-def createReplyCatImageMessage(status_code: str) -> MessageEvent:
+def createReplyCatImageMessage(status_code: str) -> Message:
     # 猫画像が取得できるか確認(status_codeの確認)
-    # 取得できるならURLの文字列を作成し、ImageSendMessageを作って返す
-    # 取得できない場合はエラーの旨のTextSendMessageを作って返す
+    # 取得できるならURLの文字列を作成し、ImageMessageを作って返す
+    # 取得できない場合はエラーの旨のTextMessageを作って返す
     pass
 
 @handler.add(MessageEvent)
 def handle_message(event):
-    # Message typeが"text"のとき
-    if event.message.type == "text":
+    with ApiClient(configuration) as api_client:
+        line_bot_api = MessagingApi(api_client)
         res_data = None
         # 天気予報
         if (result := parseWeatherCommand(event.message.text))[0]:
@@ -95,4 +109,9 @@ def handle_message(event):
         
         if res_data != None:
             # Replyメッセージの送信
-            line_bot_api.reply_message(event.reply_token, res_data)
+            line_bot_api.reply_message_with_http_info(
+                ReplyMessageRequest(
+                    reply_token=event.reply_token,
+                    messages=[res_data]
+                )
+            )
