@@ -93,7 +93,7 @@ def createReplyCatImageMessage(status_code: str) -> Message:
     # 取得できない場合はエラーの旨のTextMessageを作って返す
     pass
 
-@handler.add(MessageEvent)
+@handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
