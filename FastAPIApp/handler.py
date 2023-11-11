@@ -109,7 +109,7 @@ def createReplyCatImageMessage(status_code: str) -> Message:
         # 猫画像が見つからないので、エラーのメッセージを返す
         return TextMessage(text="猫画像が見つかりませんでした-code:{0}".format(status_code))
 
-@handler.add(MessageEvent)
+@handler.add(MessageEvent, message=TextMessageContent)
 def handle_message(event):
     with ApiClient(configuration) as api_client:
         line_bot_api = MessagingApi(api_client)
