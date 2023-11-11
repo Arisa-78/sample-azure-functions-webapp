@@ -119,9 +119,11 @@ def handle_message(event):
             # 天気予報の回答を生成
             res_data = createReplyForecastMessage(result[1])
         # 猫画像
-        if (result := parseCatCommand(event.message.text))[0]:
+        elif (result := parseCatCommand(event.message.text))[0]:
             # 猫画像の回答を生成
             res_data = createReplyCatImageMessage(result[1])
+        else:
+            res_data = TextMessage(text=event.message.text)
         
         if res_data != None:
             # Replyメッセージの送信
